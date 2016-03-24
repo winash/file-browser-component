@@ -1,0 +1,115 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../iron-icon/iron-icon.html">
+<link rel="import" href="../vaadin-grid/vaadin-grid.html">
+
+<dom-module id="file-browser">
+
+
+  <template>
+    <style>
+      /* local styles go here */
+
+      #simple {
+        height: 300px;
+      }
+    </style>
+
+    <!-- local DOM goes here -->
+    <vaadin-grid fileservice="[[fileservice]]" instance="[[instance]]" startpath="[[startpath]]" id="simple">
+      <table>
+        <colgroup>
+          <col name="name"  sortable="" >
+          <col name="blockSize" sortable="" >
+          <col name="lastModified" sortable="" >
+          <col name="owner" sortable="" >
+          <col name="group" sortable="" >
+          <col name="permission">
+        </colgroup>
+      </table>
+    </vaadin-grid>
+
+  </template>
+
+  <script>
+  Polymer({
+    is: 'file-browser',
+    properties: {
+      fileservice: String,
+      instance:String,
+      startpath:String,
+    },
+
+    render:function(){
+      window.addEventListener('WebComponentsReady', function(e) {
+        this.startLoad();
+      });
+    },
+
+    startLoad:function(){
+      var s = this.fileservice;
+      var c = this.instance;
+      var p = this.startpath;
+
+        HTMLImports.whenReady(function() {
+          var grid = document.querySelector('#simple');
+
+
+          grid.addEventListener('selected-items-changed', function() {
+            // get the path for selected item
+            var selected = grid.selection.selected();
+            if(grid.items[selected]) {
+              var toLoad = grid.items[selected].path;
+              getJSON('http://' + s + '/files/' + c + '?path=' + toLoad, function (json) {
+                grid.items = json.files;
+                grid.refreshItems();
+              });
+            }
+
+          });
+
+
+          var dateRenderer = function(cell) {
+            var d = new Date(0); // The 0 there is the key, which sets the date to the epoch
+            d.setUTCSeconds(Number(cell.data));
+            cell.element.innerHTML = d;
+          };
+          var fileRenderer = function(cell) {
+            var isDir = grid.items[cell.row.index].directory;
+            if(isDir)
+              cell.element.innerHTML = "<span><iron-icon icon='icons:folder'></iron-icon>&nbsp;"+cell.data+"</span>";
+            else
+              cell.element.innerHTML = "<span><iron-icon icon='icons:tab'></iron-icon>&nbsp;"+cell.data+"</span>";
+
+          };
+
+
+          grid.columns[0].renderer = fileRenderer;
+          grid.columns[2].renderer = dateRenderer;
+
+          getJSON(encodeURI('http://'+s+'/files/'+c+'?path='+p), function(json) {
+            grid.items = json.files;
+          });
+        });
+
+
+
+        function getJSON(url, callback) {
+          var xhr = new XMLHttpRequest();
+          xhr.onreadystatechange = function() {
+            if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+              callback(JSON.parse(xhr.responseText));
+            }
+          };
+          xhr.open('GET', url, true);
+          xhr.send();
+        }
+
+
+    }
+
+
+  });
+  </script>
+
+</dom-module>
+
