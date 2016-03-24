@@ -1,5 +1,10 @@
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="../iron-icon/iron-icon.html">
+<link rel="import" href="../iron-icons/iron-icons.html">
+<link rel="import" href="../paper-header-panel/paper-header-panel.html">
+<link rel="import" href="../paper-toolbar/paper-toolbar.html">
+<link rel="import" href="../paper-material/paper-material.html">
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
 <link rel="import" href="../vaadin-grid/vaadin-grid.html">
 
 <dom-module id="file-browser">
@@ -8,14 +13,27 @@
   <template>
     <style>
       /* local styles go here */
-
-      #simple {
-        height: 300px;
+      paper-toolbar {
+        background-color: lightgreen;
+        color: black;
+        }
       }
+
     </style>
 
+
     <!-- local DOM goes here -->
-    <vaadin-grid fileservice="[[fileservice]]" instance="[[instance]]" startpath="[[startpath]]" id="simple">
+    <paper-material elevation="1">
+      <paper-header-panel>
+        <paper-toolbar>
+          <paper-icon-button icon="arrow-back"></paper-icon-button>
+          <paper-icon-button icon="arrow-forward"></paper-icon-button>
+          <div class="title">HDF file browser</div>
+          <paper-icon-button icon="create-new-folder"></paper-icon-button>
+          <paper-icon-button icon="file-upload"></paper-icon-button>
+        </paper-toolbar>
+      </paper-header-panel>
+    <vaadin-grid visible-rows="6" fileservice="[[fileservice]]" instance="[[instance]]" startpath="[[startpath]]" id="simple">
       <table>
         <colgroup>
           <col name="name"  sortable="" >
@@ -27,7 +45,7 @@
         </colgroup>
       </table>
     </vaadin-grid>
-
+    </paper-material>
   </template>
 
   <script>
