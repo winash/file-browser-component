@@ -1,10 +1,14 @@
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="../iron-icon/iron-icon.html">
+<link rel="import" href="../iron-input/iron-input.html">
 <link rel="import" href="../iron-icons/iron-icons.html">
 <link rel="import" href="../paper-header-panel/paper-header-panel.html">
 <link rel="import" href="../paper-toolbar/paper-toolbar.html">
 <link rel="import" href="../paper-material/paper-material.html">
 <link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-card/paper-card.html">
+<link rel="import" href="../paper-dialog/paper-dialog.html">
 <link rel="import" href="../vaadin-grid/vaadin-grid.html">
 
 <dom-module id="file-browser">
@@ -17,7 +21,16 @@
         background-color: lightgreen;
         color: black;
         }
+      paper-dialog {
+        min-width: 400px;
       }
+
+      input[is=iron-input] {
+        width: 70%;
+        box-sizing: border-box;
+      }
+
+
 
     </style>
 
@@ -29,11 +42,13 @@
           <paper-icon-button icon="arrow-back"></paper-icon-button>
           <paper-icon-button icon="arrow-forward"></paper-icon-button>
           <div class="title">HDF file browser</div>
-          <paper-icon-button icon="create-new-folder"></paper-icon-button>
+          <paper-icon-button id="fb-home-button" icon="home"></paper-icon-button>
+          <paper-icon-button icon="create-new-folder" id="filebrowser-modal-button"></paper-icon-button>
           <paper-icon-button icon="file-upload"></paper-icon-button>
+          <paper-icon-button icon="content-copy"></paper-icon-button>
         </paper-toolbar>
       </paper-header-panel>
-    <vaadin-grid visible-rows="6" fileservice="[[fileservice]]" instance="[[instance]]" startpath="[[startpath]]" id="simple">
+    <vaadin-grid selection-mode="multi" visible-rows="10" fileservice="[[fileservice]]" instance="[[instance]]" startpath="[[startpath]]" id="simple">
       <table>
         <colgroup>
           <col name="name"  sortable="" >
@@ -42,10 +57,28 @@
           <col name="owner" sortable="" >
           <col name="group" sortable="" >
           <col name="permission">
+          <col name="path" hidable="" hidden="">
+          <col name="directory" hidden="">
         </colgroup>
       </table>
     </vaadin-grid>
     </paper-material>
+
+    <paper-dialog id="filebrowser-modal" modal>
+
+      <h2>Create a new folder</h2>
+      <div id="pathPlaceholder"></div>
+      <label for="folder-new-input"/>name &nbsp;<input is="iron-input" id="folder-new-input" type="text">
+      <div class="buttons">
+        <paper-button dialog-dismiss>Cancel</paper-button>
+        <paper-button id="filebrowser-create-folder" dialog-confirm autofocus>Create folder</paper-button>
+      </div>
+
+    </paper-dialog>
+
+
+
+
   </template>
 
   <script>
@@ -54,13 +87,8 @@
     properties: {
       fileservice: String,
       instance:String,
-      startpath:String,
-    },
+      startpath:String
 
-    render:function(){
-      window.addEventListener('WebComponentsReady', function(e) {
-        this.startLoad();
-      });
     },
 
     startLoad:function(){
@@ -69,21 +97,74 @@
       var p = this.startpath;
 
         HTMLImports.whenReady(function() {
+
+
+          var currentLocation = p;
+
           var grid = document.querySelector('#simple');
-
-
-          grid.addEventListener('selected-items-changed', function() {
-            // get the path for selected item
-            var selected = grid.selection.selected();
-            if(grid.items[selected]) {
-              var toLoad = grid.items[selected].path;
-              getJSON('http://' + s + '/files/' + c + '?path=' + toLoad, function (json) {
-                grid.items = json.files;
-                grid.refreshItems();
-              });
-            }
+          // attach home button handler
+          document.getElementById('fb-home-button').addEventListener("click", function(){
+            getJSON(encodeURI('http://'+s+'/files/'+c+'?path='+p), function(json) {
+              grid.items = json.files;
+              grid.refreshItems();
+              currentLocation = p;
+            });
 
           });
+
+
+          document.getElementById('filebrowser-create-folder').addEventListener("click", function(){
+            var folderName = document.getElementById('folder-new-input').value;
+            var newPath
+            if(!currentLocation.endsWith("/")) {
+              newPath = decodeURIComponent(currentLocation) + "/" + folderName;
+            } else {
+              newPath = decodeURIComponent(currentLocation) + folderName;
+            }
+            postJSON(encodeURI('http://'+s+'/files/'+c+'/mkdir'),newPath,function(json) {
+              getJSON('http://'+s+'/files/'+c+'?path='+currentLocation, function(retVal) {
+                grid.items = retVal.files;
+                grid.refreshItems();
+              });
+
+            });
+
+          });
+
+
+
+
+          document.getElementById('filebrowser-modal-button').addEventListener("click", function () {
+
+            var dialog = document.getElementById('filebrowser-modal');
+            if (dialog) {
+              document.getElementById('pathPlaceholder').innerHTML = "<p>Your folder will be created under  <b>" +decodeURIComponent(currentLocation)+ "</b></p>"
+              dialog.open();
+            }
+          });
+
+
+          grid.addEventListener('sort-order-changed', function() {
+            var idx = grid.sortOrder[0].column;
+            var lesser = grid.sortOrder[0].direction == 'asc' ? -1 : 1;
+            grid.items.sort(function(a, b) {
+              if(typeof a[idx] == "string" && typeof b[idx] == "string"){
+                return (a[idx].localeCompare(b[idx])) ? lesser : -lesser;
+              }else {
+                return (a[idx] < b[idx]) ? lesser : -lesser;
+              }
+            });
+          });
+
+
+          function descend(gotToPath) {
+            // get the path for selected item
+            getJSON('http://' + s + '/files/' + c + '?path=' + gotToPath, function (json) {
+              grid.items = json.files;
+              grid.refreshItems();
+              currentLocation = gotToPath;
+            });
+          };
 
 
           var dateRenderer = function(cell) {
@@ -91,10 +172,20 @@
             d.setUTCSeconds(Number(cell.data));
             cell.element.innerHTML = d;
           };
+
           var fileRenderer = function(cell) {
-            var isDir = grid.items[cell.row.index].directory;
-            if(isDir)
-              cell.element.innerHTML = "<span><iron-icon icon='icons:folder'></iron-icon>&nbsp;"+cell.data+"</span>";
+            var isDir = cell.row.data.directory ;
+            var path = cell.row.data.path ;
+
+            if(isDir) {
+              var encoded = encodeURIComponent(path);
+              var newId = "directory$$"+encoded;
+              cell.element.innerHTML = "<span id='"+newId+"'><iron-icon icon='icons:folder'></iron-icon><a href='#'>&nbsp;" + cell.data + "</a></span>";
+              document.getElementById(newId).addEventListener("click", function(){
+                descend(encoded);
+              });
+
+            }
             else
               cell.element.innerHTML = "<span><iron-icon icon='icons:tab'></iron-icon>&nbsp;"+cell.data+"</span>";
 
@@ -120,6 +211,23 @@
           };
           xhr.open('GET', url, true);
           xhr.send();
+        }
+
+
+        function postJSON(url,toPost,callback){
+          var xhr = new XMLHttpRequest();
+          xhr.onreadystatechange = function() {
+            if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+              callback(JSON.parse(xhr.responseText));
+
+            }
+          };
+
+          xhr.open('POST', url, true);
+          xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+          var data = JSON.stringify({path:toPost});
+          xhr.send(data);
+
         }
 
 
