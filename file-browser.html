@@ -10,6 +10,7 @@
 <link rel="import" href="../paper-card/paper-card.html">
 <link rel="import" href="../paper-dialog/paper-dialog.html">
 <link rel="import" href="../vaadin-grid/vaadin-grid.html">
+<link rel="import" href="../vaadin-upload/vaadin-upload.html">
 
 <dom-module id="file-browser">
 
@@ -30,6 +31,11 @@
         box-sizing: border-box;
       }
 
+      #filebrowser-modal-browser{
+        height: 300px;
+        min-width: 500px;
+      }
+
 
 
     </style>
@@ -44,8 +50,8 @@
           <div class="title">HDF file browser</div>
           <paper-icon-button id="fb-home-button" icon="home"></paper-icon-button>
           <paper-icon-button icon="create-new-folder" id="filebrowser-modal-button"></paper-icon-button>
-          <paper-icon-button icon="file-upload"></paper-icon-button>
-          <paper-icon-button icon="content-copy"></paper-icon-button>
+          <paper-icon-button icon="file-upload" id = "filebrowser-upload-dialog-button"></paper-icon-button>
+          <paper-icon-button icon="content-copy" id="filebrowser-copy-button"></paper-icon-button>
         </paper-toolbar>
       </paper-header-panel>
     <vaadin-grid selection-mode="multi" visible-rows="10" fileservice="[[fileservice]]" instance="[[instance]]" startpath="[[startpath]]" id="simple">
@@ -76,6 +82,24 @@
 
     </paper-dialog>
 
+    <!--Destination for copy and move -->
+    <paper-dialog id="filebrowser-destination-grid">
+
+      <h2>Select a destination - Double click to descend </h2>
+      <vaadin-grid id="filebrowser-modal-browser">
+        <table>
+          <colgroup>
+            <col name="name">
+          </colgroup>
+        </table>
+      </vaadin-grid>
+
+    </paper-dialog>
+
+    <paper-dialog id="filebrowser-upload-dialog">
+      <h2>Upload files</h2>
+      <vaadin-upload id="file-browser-uploader"></vaadin-upload>
+    </paper-dialog>
 
 
 
@@ -132,6 +156,22 @@
           });
 
 
+          document.getElementById('filebrowser-copy-button').addEventListener("click", function () {
+            var inner = document.querySelector('#filebrowser-modal-browser');
+            var dialog = document.getElementById('filebrowser-destination-grid');
+            if (dialog) {
+              // open dialog
+              getJSON(encodeURI('http://'+s+'/files/'+c+'?path='+p), function(json) {
+                inner.items = json.files;
+                inner.refreshItems();
+                dialog.open();
+              });
+
+            }
+          });
+
+
+
 
 
           document.getElementById('filebrowser-modal-button').addEventListener("click", function () {
@@ -142,6 +182,34 @@
               dialog.open();
             }
           });
+
+          document.getElementById('filebrowser-upload-dialog-button').addEventListener("click", function () {
+
+            var dialog = document.getElementById('filebrowser-upload-dialog');
+            if (dialog) {
+              dialog.open();
+            }
+          });
+
+          document.getElementById('filebrowser-upload-dialog').addEventListener("iron-overlay-closed", function () {
+            getJSON('http://'+s+'/files/'+c+'?path='+currentLocation, function(retVal) {
+              grid.items = retVal.files;
+              grid.refreshItems();
+            });
+
+
+          });
+
+          document.getElementById('file-browser-uploader').addEventListener('upload-before', function(e) {
+            e.detail.file.uploadTarget = 'http://'+s+'/files/'+c+'/upload';
+          });
+
+          document.getElementById('file-browser-uploader').addEventListener('upload-request', function(e) {
+            e.detail.xhr.setRequestHeader('target-path', decodeURIComponent(currentLocation));
+          });
+
+
+
 
 
           grid.addEventListener('sort-order-changed', function() {
