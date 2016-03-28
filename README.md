@@ -1,1 +1,1 @@
-A polymer file browser
+HDFS file browser as a plugin
