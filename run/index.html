@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+  <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/0.7.22/webcomponents-lite.min.js"></script>
+    <script>
+      /*
+      window.Polymer = window.Polymer || {};
+      window.Polymer.dom = 'shadow';
+      */
+    </script>
+    <link rel="import" href="bower_components/file-browser/file-browser.html">
+    <link rel="import" href="bower_components/iron-input/iron-input.html">
+    <link rel="import" href="bower_components/paper-dialog/paper-dialog.html">
+  </head>
+  <body>
+    <file-browser fileservice="localhost:9000" instance="test" startpath="/" ></file-browser>
+    <script>
+      window.addEventListener('WebComponentsReady', function(e) {
+        document.querySelector('file-browser').startLoad();
+      });
+    </script>
+  </body>
+</html>
